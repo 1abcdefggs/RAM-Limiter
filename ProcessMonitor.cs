@@ -8,39 +8,35 @@ namespace RAMLIMITER
 {
     static class ProcessMonitor
     {
-        // Choose the process instance with the largest working set (safely)
-        static int GetLargestProcessIdByName(string name)
+        // The process instance with the largest working set, or null; the caller disposes it.
+        // Returning the instance (not its id) avoids a second lookup by id on every tick.
+        static Process FindLargestProcess(string name)
         {
-            try
+            Process[] procs;
+            try { procs = Process.GetProcessesByName(name); }
+            catch { return null; }
+
+            Process best = null;
+            long bestWs = -1;
+            foreach (var p in procs)
             {
-                var procs = Process.GetProcessesByName(name);
-                int bestId = -1;
-                long bestWs = -1;
-                foreach (var p in procs)
+                try
                 {
-                    try
+                    if (p.WorkingSet64 > bestWs)
                     {
-                        if (p.WorkingSet64 > bestWs)
-                        {
-                            bestWs = p.WorkingSet64;
-                            bestId = p.Id;
-                        }
-                    }
-                    catch
-                    {
-                        // accessing WorkingSet64 can throw for protected processes; ignore
-                    }
-                    finally
-                    {
-                        p.Dispose();
+                        bestWs = p.WorkingSet64;
+                        best?.Dispose();
+                        best = p;
+                        continue;
                     }
                 }
-                return bestId;
+                catch
+                {
+                    // accessing WorkingSet64 can throw for protected processes; ignore
+                }
+                p.Dispose();
             }
-            catch
-            {
-                return -1;
-            }
+            return best;
         }
 
         // false when the wait was cancelled
@@ -73,8 +69,8 @@ namespace RAMLIMITER
 
             while (!ct.IsCancellationRequested)
             {
-                int pid = GetLargestProcessIdByName(name);
-                if (pid == -1)
+                var proc = FindLargestProcess(name);
+                if (proc == null)
                 {
                     ReportThrottled(ConsoleColor.Yellow, $"{name}: not running");
 
@@ -82,9 +78,10 @@ namespace RAMLIMITER
                     continue;
                 }
 
+                int pid = proc.Id;
                 try
                 {
-                    using (var proc = Process.GetProcessById(pid))
+                    using (proc)
                     {
                         // Attempt to trim the working set
                         try
