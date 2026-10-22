@@ -67,6 +67,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ArgParser.cs" />
+    <Compile Include="ConfigLoader.cs" />
+    <Compile Include="Elevation.cs" />
+    <Compile Include="InteractiveMenu.cs" />
+    <Compile Include="MonitorRegistry.cs" />
+    <Compile Include="NativeMethods.cs" />
+    <Compile Include="ProcessMonitor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="TrayHost.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
