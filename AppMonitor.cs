@@ -19,6 +19,8 @@ namespace RAMLIMITER
             public TimeSpan Cpu;
             public int IdleTicks;
             public bool Trimmed;
+            // The priority found before this tool lowered it; null when it was not lowered
+            public uint? Original;
         }
 
         public readonly string Name;
@@ -29,6 +31,9 @@ namespace RAMLIMITER
         public DateTime NextDue = DateTime.UtcNow;
         double lastReportedLoad = -1;
         DateTime lastReport = DateTime.MinValue;
+        // Tick runs on the scheduler thread, Restore on the caller's; stopped blocks late ticks
+        readonly object gate = new object();
+        bool stopped;
 
         public AppMonitor(string name, int intervalMs, TrimMode mode, int idleIntervals)
         {
@@ -74,8 +79,33 @@ namespace RAMLIMITER
             return false;
         }
 
+        static bool SetPriority(Process proc, uint priority)
+        {
+            try { return NativeMethods.SetMemoryPriority(proc.Handle, priority); }
+            catch { return false; }
+        }
+
+        // Lowers the memory priority and returns the value it had, or null when nothing was changed
+        // (Windows may already have lowered it, or the process cannot be queried).
+        static uint? Lower(Process proc)
+        {
+            try
+            {
+                var current = NativeMethods.GetMemoryPriority(proc.Handle);
+                if (current > NativeMethods.MemoryPriorityLow && NativeMethods.SetMemoryPriority(proc.Handle, NativeMethods.MemoryPriorityLow)) return current;
+            }
+            catch { }
+            return null;
+        }
+
         // The snapshot owns the processes, so nothing is disposed here.
         public void Tick(List<Process> instances, uint? load, int foregroundPid)
+        {
+            lock (gate) if (!stopped) TickCore(instances, load, foregroundPid);
+            NextDue = DateTime.UtcNow.AddMilliseconds(IntervalMs);
+        }
+
+        void TickCore(List<Process> instances, uint? load, int foregroundPid)
         {
             try
             {
@@ -92,7 +122,28 @@ namespace RAMLIMITER
             {
                 Log.Write(ConsoleColor.Red, $"Error handling {Name}: {ex.Message}");
             }
-            NextDue = DateTime.UtcNow.AddMilliseconds(IntervalMs);
+        }
+
+        // Stop for good and put back the original memory priority on every instance this monitor lowered.
+        // A pid is only touched when its start time still matches, so a reused pid is left alone.
+        public void Restore()
+        {
+            lock (gate)
+            {
+                stopped = true;
+                foreach (var entry in samples)
+                {
+                    var original = entry.Value.Original;
+                    if (!original.HasValue) continue;
+                    try
+                    {
+                        using (var p = Process.GetProcessById(entry.Key))
+                            if (p.StartTime == entry.Value.StartTime) NativeMethods.SetMemoryPriority(p.Handle, original.Value);
+                    }
+                    catch { } // the process has exited; its priority went with it
+                }
+                samples.Clear();
+            }
         }
 
         void TickLargest(List<Process> instances, uint? load)
@@ -132,9 +183,17 @@ namespace RAMLIMITER
                 bool busy = p.Id == foregroundPid || (cpu - s.Cpu).TotalMilliseconds >= (now - s.Taken).TotalMilliseconds * IdleCpuShare;
                 s.Cpu = cpu;
                 s.Taken = now;
-                if (busy) { s.IdleTicks = 0; s.Trimmed = false; continue; }
+                if (busy)
+                {
+                    s.IdleTicks = 0;
+                    s.Trimmed = false;
+                    if (s.Original.HasValue && SetPriority(p, s.Original.Value)) s.Original = null;
+                    continue;
+                }
                 idle++;
-                if (++s.IdleTicks >= idleIntervals && !s.Trimmed && Trim(p)) { s.Trimmed = true; trimmedNow++; }
+                if (++s.IdleTicks < idleIntervals) continue;
+                if (!s.Original.HasValue) s.Original = Lower(p);
+                if (!s.Trimmed && Trim(p)) { s.Trimmed = true; trimmedNow++; }
             }
             foreach (var pid in new List<int>(samples.Keys)) if (!seen.Contains(pid)) samples.Remove(pid);
             if (trimmedNow > 0) lastReportedLoad = -1; // always report the tick that trimmed something

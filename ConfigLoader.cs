@@ -22,6 +22,8 @@ namespace RAMLIMITER
         // null = not given; the effective defaults are Largest and DefaultIdleIntervals
         public TrimMode? Mode { get; set; }
         public int? IdleIntervals { get; set; }
+        // Apps that are never trimmed, even when listed in Processes
+        public string[] Favor { get; set; }
 
         public static TrimMode? ParseMode(string s) =>
             Enum.TryParse(s, true, out TrimMode m) && Enum.IsDefined(typeof(TrimMode), m) ? m : (TrimMode?)null;
@@ -47,6 +49,7 @@ namespace RAMLIMITER
                 if (mode != null) cfg.Mode = Config.ParseMode(mode);
                 var idle = TryGetJsonNumber(text, "idleIntervals");
                 if (idle.HasValue && idle.Value >= 1) cfg.IdleIntervals = (int)idle.Value;
+                cfg.Favor = TryGetJsonArray(text, "favor");
                 return cfg;
             }
             catch { return null; }

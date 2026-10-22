@@ -14,7 +14,9 @@ namespace RAMLIMITER
             Console.WriteLine("  --autostart           Start monitors immediately and run headless");
             Console.WriteLine("  --tray                Start monitors and live in the system tray (implies --autostart)");
             Console.WriteLine("  --mode <m>            largest (default), all, or idle: which instances to trim");
-            Console.WriteLine("  --idle-intervals <n>  Idle ticks before an instance is trimmed in idle mode (default 3)");
+            Console.WriteLine("                        idle trims each idle instance once and lowers its memory priority");
+            Console.WriteLine("  --idle-intervals <n>  Idle ticks before an instance counts as idle (default 3)");
+            Console.WriteLine("  --favor a1,a2         Apps never trimmed, even when listed in --processes");
             Console.WriteLine("  --config <path>     Path to JSON config file (defaults to ./config.json)");
             Console.WriteLine("  --help                Show this help");
         }
@@ -42,6 +44,7 @@ namespace RAMLIMITER
                 }
                 else if (Is(a, "--autostart")) cfg.AutoStart = true;
                 else if (Is(a, "--tray")) cfg.Tray = cfg.AutoStart = true;
+                else if (Is(a, "--favor") && hasValue) cfg.Favor = Config.SplitNames(args[++i]);
                 else if (Is(a, "--mode") && hasValue) cfg.Mode = Config.ParseMode(args[++i]) ?? cfg.Mode;
                 else if (Is(a, "--idle-intervals") && hasValue)
                 {
@@ -57,6 +60,7 @@ namespace RAMLIMITER
                 cfg.AutoStart |= fileCfg.AutoStart;
                 cfg.Mode = cfg.Mode ?? fileCfg.Mode;
                 cfg.IdleIntervals = cfg.IdleIntervals ?? fileCfg.IdleIntervals;
+                if ((cfg.Favor == null || cfg.Favor.Length == 0) && fileCfg.Favor != null) cfg.Favor = fileCfg.Favor;
             }
             cfg.Processes = cfg.Processes ?? new string[0];
         }

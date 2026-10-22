@@ -13,11 +13,14 @@ namespace RAMLIMITER
 
         readonly TrimMode mode;
         readonly int idleIntervals;
+        readonly HashSet<string> favored = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool cancelled;
 
         public MonitorRegistry(Config cfg)
         {
             mode = cfg.Mode ?? TrimMode.Largest;
             idleIntervals = cfg.IdleIntervals ?? Config.DefaultIdleIntervals;
+            foreach (var name in cfg.Favor ?? new string[0]) if (TryNormalize(name, out var key)) favored.Add(key);
         }
 
         public IEnumerable<string> Names => monitors.Keys;
@@ -47,6 +50,7 @@ namespace RAMLIMITER
         {
             if (!TryNormalize(name, out name)) return;
             if (monitors.ContainsKey(name)) { Notify($"Already monitoring {name}"); return; }
+            if (favored.Contains(name)) { Notify($"{name} is favored and is not trimmed"); return; }
             var monitor = new AppMonitor(name, intervalMs, mode, idleIntervals);
             monitors[name] = monitor;
             scheduler.Add(monitor);
@@ -58,14 +62,26 @@ namespace RAMLIMITER
             if (!TryNormalize(name, out name)) return;
             if (!monitors.TryGetValue(name, out var monitor)) { Notify($"Not monitoring {name}"); return; }
             scheduler.Remove(monitor);
+            monitor.Restore();
             monitors.Remove(name);
             Notify($"Stopped monitoring {name}");
         }
 
+        // Stops every monitor and restores memory priorities. Safe to call twice: the normal exit
+        // path and the console control handler (Ctrl+C, window closed) may both call it.
         public void CancelAll()
         {
-            scheduler.Stop();
-            foreach (var name in monitors.Keys) Log.Write(ConsoleColor.Gray, $"Stopped monitoring {name}");
+            lock (monitors)
+            {
+                if (cancelled) return;
+                cancelled = true;
+                scheduler.Stop();
+                foreach (var monitor in monitors.Values)
+                {
+                    monitor.Restore();
+                    Log.Write(ConsoleColor.Gray, $"Stopped monitoring {monitor.Name}");
+                }
+            }
         }
     }
 }
