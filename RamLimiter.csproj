@@ -60,6 +60,7 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppMonitor.cs" />
     <Compile Include="ArgParser.cs" />
     <Compile Include="ConfigLoader.cs" />
     <Compile Include="Elevation.cs" />
@@ -67,8 +68,8 @@
     <Compile Include="Log.cs" />
     <Compile Include="MonitorRegistry.cs" />
     <Compile Include="NativeMethods.cs" />
-    <Compile Include="ProcessMonitor.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="Scheduler.cs" />
     <Compile Include="TrayHost.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

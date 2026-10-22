@@ -1,15 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace RAMLIMITER
 {
     // Owns the running monitors; the menu and the autostart/tray paths all go through it.
     class MonitorRegistry
     {
-        readonly Dictionary<string, CancellationTokenSource> monitors =
-            new Dictionary<string, CancellationTokenSource>(StringComparer.OrdinalIgnoreCase);
+        readonly Dictionary<string, AppMonitor> monitors = new Dictionary<string, AppMonitor>(StringComparer.OrdinalIgnoreCase);
+        readonly Scheduler scheduler = new Scheduler();
         // Status lines since the menu last drew; the menu shows them under itself.
         readonly List<string> notices = new List<string>();
 
@@ -40,24 +38,25 @@ namespace RAMLIMITER
         {
             if (!TryNormalize(name, out name)) return;
             if (monitors.ContainsKey(name)) { Notify($"Already monitoring {name}"); return; }
-            var cts = new CancellationTokenSource();
-            monitors[name] = cts;
-            Task.Run(() => ProcessMonitor.MonitorProcessAsync(name, intervalMs, cts.Token));
+            var monitor = new AppMonitor(name, intervalMs);
+            monitors[name] = monitor;
+            scheduler.Add(monitor);
             Notify($"Started monitoring {name}");
         }
 
         public void Stop(string name)
         {
             if (!TryNormalize(name, out name)) return;
-            if (!monitors.TryGetValue(name, out var cts)) { Notify($"Not monitoring {name}"); return; }
-            cts.Cancel();
+            if (!monitors.TryGetValue(name, out var monitor)) { Notify($"Not monitoring {name}"); return; }
+            scheduler.Remove(monitor);
             monitors.Remove(name);
             Notify($"Stopped monitoring {name}");
         }
 
         public void CancelAll()
         {
-            foreach (var cts in monitors.Values) cts.Cancel();
+            scheduler.Stop();
+            foreach (var name in monitors.Keys) Log.Write(ConsoleColor.Gray, $"Stopped monitoring {name}");
         }
     }
 }
