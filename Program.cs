@@ -207,6 +207,7 @@ namespace RAMLIMITER
             public string[] Processes { get; set; }
             public int IntervalMs { get; set; } = 5000;
             public bool AutoStart { get; set; } = false;
+            public bool Tray { get; set; } = false;
         }
 
         static void PrintHelp()
@@ -216,7 +217,8 @@ namespace RAMLIMITER
             Console.WriteLine("  --processes p1,p2    Comma-separated process names to monitor");
             Console.WriteLine("  --interval <ms>      Interval in milliseconds between trims (default 5000)");
             Console.WriteLine("  --autostart           Start monitors immediately and run headless");
-            Console.WriteLine("  --config <path>      Path to JSON config file (defaults to ./config.json)");
+            Console.WriteLine("  --tray                Start monitors and live in the system tray (implies --autostart)");
+            Console.WriteLine("  --config <path>     Path to JSON config file (defaults to ./config.json)");
             Console.WriteLine("  --help                Show this help");
         }
 
@@ -354,6 +356,10 @@ namespace RAMLIMITER
                 {
                     cfg.AutoStart = true; runHeadless = true; continue;
                 }
+                if (string.Equals(a, "--tray", StringComparison.OrdinalIgnoreCase))
+                {
+                    cfg.Tray = true; cfg.AutoStart = true; runHeadless = true; continue;
+                }
             }
 
             var fileCfg = LoadConfig(configPath);
@@ -372,6 +378,7 @@ namespace RAMLIMITER
             if (cfg.Processes == null) cfg.Processes = new string[0];
         }
 
+        [STAThread]
         static int Main(string[] args)
         {
             ParseAndApplyArgs(args, out var cfg, out var showHelp, out var runHeadless);
@@ -391,8 +398,15 @@ namespace RAMLIMITER
                 foreach (var p in cfg.Processes)
                     StartMonitor(p, cfg.IntervalMs > 0 ? cfg.IntervalMs : 5000, monitors);
 
-                Console.WriteLine("Autostart monitors running. Press Enter to exit.");
-                Console.ReadLine();
+                if (cfg.Tray)
+                {
+                    TrayHost.Run("RAM Limiter: " + string.Join(", ", cfg.Processes));
+                }
+                else
+                {
+                    Console.WriteLine("Autostart monitors running. Press Enter to exit.");
+                    Console.ReadLine();
+                }
 
                 foreach (var cts in monitors.Values) try { cts.Cancel(); } catch { }
                 return 0;
