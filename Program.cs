@@ -10,7 +10,7 @@ namespace RAMLIMITER
             ArgParser.ParseAndApplyArgs(args, out var cfg, out var showHelp);
             if (showHelp) { ArgParser.PrintHelp(); return 0; }
             Elevation.ElevatePrivileges(args);
-            var monitors = new MonitorRegistry();
+            var monitors = new MonitorRegistry(cfg);
             // Autostart (and tray) run the configured monitors until Enter or the tray's Exit
             if (cfg.AutoStart && cfg.Processes.Length > 0)
             {

@@ -72,7 +72,8 @@ namespace RAMLIMITER
                     list.Add(p);
                 }
                 var load = NativeMethods.MemoryLoad();
-                foreach (var m in due) m.Tick(byName.TryGetValue(m.Name, out var instances) ? instances : null, load);
+                var foreground = NativeMethods.ForegroundProcessId();
+                foreach (var m in due) m.Tick(byName.TryGetValue(m.Name, out var instances) ? instances : null, load, foreground);
             }
             finally
             {

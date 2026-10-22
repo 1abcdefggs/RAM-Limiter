@@ -11,6 +11,15 @@ namespace RAMLIMITER
         // Status lines since the menu last drew; the menu shows them under itself.
         readonly List<string> notices = new List<string>();
 
+        readonly TrimMode mode;
+        readonly int idleIntervals;
+
+        public MonitorRegistry(Config cfg)
+        {
+            mode = cfg.Mode ?? TrimMode.Largest;
+            idleIntervals = cfg.IdleIntervals ?? Config.DefaultIdleIntervals;
+        }
+
         public IEnumerable<string> Names => monitors.Keys;
 
         // false for a blank name; otherwise the trimmed, lower-cased key
@@ -38,7 +47,7 @@ namespace RAMLIMITER
         {
             if (!TryNormalize(name, out name)) return;
             if (monitors.ContainsKey(name)) { Notify($"Already monitoring {name}"); return; }
-            var monitor = new AppMonitor(name, intervalMs);
+            var monitor = new AppMonitor(name, intervalMs, mode, idleIntervals);
             monitors[name] = monitor;
             scheduler.Add(monitor);
             Notify($"Started monitoring {name}");

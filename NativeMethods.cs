@@ -27,6 +27,19 @@ namespace RAMLIMITER
             public ulong ullAvailExtendedVirtual;
         }
 
+        [DllImport("user32.dll")]
+        static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        // Id of the process that owns the foreground window, or 0
+        internal static int ForegroundProcessId()
+        {
+            GetWindowThreadProcessId(GetForegroundWindow(), out var pid);
+            return (int)pid;
+        }
+
         static readonly uint MemoryStatusSize = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
 
         // System-wide memory load in percent (0-100), or null when the call fails
