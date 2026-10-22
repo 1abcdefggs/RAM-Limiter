@@ -7,10 +7,16 @@ namespace RAMLIMITER
 {
     class Config
     {
+        public const int DefaultIntervalMs = 5000;
+
         public string[] Processes { get; set; }
-        public int IntervalMs { get; set; } = 5000;
-        public bool AutoStart { get; set; } = false;
-        public bool Tray { get; set; } = false;
+        public int IntervalMs { get; set; } = DefaultIntervalMs;
+        public bool AutoStart { get; set; }
+        public bool Tray { get; set; }
+
+        // "a, b,,c" -> a, b, c
+        public static string[] SplitNames(string list) =>
+            list.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToArray();
     }
 
     static class ConfigLoader
@@ -43,11 +49,23 @@ namespace RAMLIMITER
             }
         }
 
+        static int KeyIndex(string text, string key) =>
+            text.IndexOf('"' + key + '"', StringComparison.OrdinalIgnoreCase);
+
+        // index just after the ':' that follows the key, or -1
+        static int ColonEnd(string text, string key)
+        {
+            var idx = KeyIndex(text, key);
+            if (idx == -1) return -1;
+            var colon = text.IndexOf(':', idx);
+            return colon == -1 ? -1 : colon + 1;
+        }
+
         static List<string> TryGetJsonArray(string text, string key)
         {
             try
             {
-                var idx = text.IndexOf('"' + key + '"', StringComparison.OrdinalIgnoreCase);
+                var idx = KeyIndex(text, key);
                 if (idx == -1) return null;
                 var start = text.IndexOf('[', idx);
                 if (start == -1) return null;
@@ -77,11 +95,8 @@ namespace RAMLIMITER
         {
             try
             {
-                var idx = text.IndexOf('"' + key + '"', StringComparison.OrdinalIgnoreCase);
-                if (idx == -1) return null;
-                var colon = text.IndexOf(':', idx);
-                if (colon == -1) return null;
-                int i = colon + 1;
+                int i = ColonEnd(text, key);
+                if (i == -1) return null;
                 while (i < text.Length && (char.IsWhiteSpace(text[i]) || text[i] == '\"')) i++;
                 int j = i;
                 while (j < text.Length && (char.IsDigit(text[j]) || text[j] == '.' || text[j] == '-')) j++;
@@ -96,13 +111,10 @@ namespace RAMLIMITER
         {
             try
             {
-                var idx = text.IndexOf('"' + key + '"', StringComparison.OrdinalIgnoreCase);
-                if (idx == -1) return null;
-                var colon = text.IndexOf(':', idx);
-                if (colon == -1) return null;
-                int i = colon + 1;
+                int i = ColonEnd(text, key);
+                if (i == -1) return null;
                 while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
-                var rest = text.Substring(i).TrimStart();
+                var rest = text.Substring(i);
                 if (rest.StartsWith("true", StringComparison.OrdinalIgnoreCase)) return true;
                 if (rest.StartsWith("false", StringComparison.OrdinalIgnoreCase)) return false;
                 return null;

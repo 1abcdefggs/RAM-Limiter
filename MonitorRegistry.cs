@@ -13,36 +13,45 @@ namespace RAMLIMITER
 
         public IEnumerable<string> Names => monitors.Keys;
 
+        // false for a blank name; otherwise the trimmed, lower-cased key
+        static bool TryNormalize(string name, out string key)
+        {
+            key = string.IsNullOrWhiteSpace(name) ? null : name.Trim().ToLower();
+            return key != null;
+        }
+
+        // print a status line and pause so the menu does not clear it at once
+        static void Notify(string message, int pauseMs)
+        {
+            Console.WriteLine(message);
+            Thread.Sleep(pauseMs);
+        }
+
         public void Start(string name, int intervalMs)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (!TryNormalize(name, out name))
                 return;
 
-            name = name.Trim().ToLower();
             if (monitors.ContainsKey(name))
             {
-                Console.WriteLine($"Already monitoring {name}");
-                Thread.Sleep(800);
+                Notify($"Already monitoring {name}", 800);
                 return;
             }
 
             var cts = new CancellationTokenSource();
             monitors[name] = cts;
             Task.Run(() => ProcessMonitor.MonitorProcessAsync(name, intervalMs, cts.Token));
-            Console.WriteLine($"Started monitoring {name}");
-            Thread.Sleep(500);
+            Notify($"Started monitoring {name}", 500);
         }
 
         public void Stop(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (!TryNormalize(name, out name))
                 return;
 
-            name = name.Trim().ToLower();
             if (!monitors.TryGetValue(name, out var cts))
             {
-                Console.WriteLine($"Not monitoring {name}");
-                Thread.Sleep(800);
+                Notify($"Not monitoring {name}", 800);
                 return;
             }
 
@@ -52,8 +61,7 @@ namespace RAMLIMITER
             }
             catch { }
             monitors.Remove(name);
-            Console.WriteLine($"Stopped monitoring {name}");
-            Thread.Sleep(500);
+            Notify($"Stopped monitoring {name}", 500);
         }
 
         public void CancelAll()

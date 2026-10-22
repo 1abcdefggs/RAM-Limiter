@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 
 namespace RAMLIMITER
 {
@@ -18,6 +17,8 @@ namespace RAMLIMITER
             Console.WriteLine("  --help                Show this help");
         }
 
+        static bool Is(string arg, string flag) => string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase);
+
         internal static void ParseAndApplyArgs(string[] args, out Config cfg, out bool showHelp)
         {
             cfg = new Config();
@@ -29,21 +30,21 @@ namespace RAMLIMITER
             for (int i = 0; i < args.Length; i++)
             {
                 var a = args[i];
-                if (string.Equals(a, "--help", StringComparison.OrdinalIgnoreCase) || string.Equals(a, "-h", StringComparison.OrdinalIgnoreCase))
+                if (Is(a, "--help") || Is(a, "-h"))
                 {
                     showHelp = true; return;
                 }
-                if (string.Equals(a, "--config", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                if (Is(a, "--config") && i + 1 < args.Length)
                 {
                     configPath = args[++i];
                     continue;
                 }
-                if (string.Equals(a, "--processes", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                if (Is(a, "--processes") && i + 1 < args.Length)
                 {
-                    cfg.Processes = args[++i].Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToArray();
+                    cfg.Processes = Config.SplitNames(args[++i]);
                     continue;
                 }
-                if (string.Equals(a, "--interval", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                if (Is(a, "--interval") && i + 1 < args.Length)
                 {
                     if (int.TryParse(args[++i], out var ms))
                     {
@@ -52,11 +53,11 @@ namespace RAMLIMITER
                     }
                     continue;
                 }
-                if (string.Equals(a, "--autostart", StringComparison.OrdinalIgnoreCase))
+                if (Is(a, "--autostart"))
                 {
                     cfg.AutoStart = true; continue;
                 }
-                if (string.Equals(a, "--tray", StringComparison.OrdinalIgnoreCase))
+                if (Is(a, "--tray"))
                 {
                     cfg.Tray = true; cfg.AutoStart = true; continue;
                 }

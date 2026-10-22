@@ -23,7 +23,7 @@ namespace RAMLIMITER
             if (cfg.AutoStart && cfg.Processes.Length > 0)
             {
                 foreach (var p in cfg.Processes)
-                    monitors.Start(p, cfg.IntervalMs > 0 ? cfg.IntervalMs : 5000);
+                    monitors.Start(p, cfg.IntervalMs > 0 ? cfg.IntervalMs : Config.DefaultIntervalMs);
 
                 if (cfg.Tray)
                 {

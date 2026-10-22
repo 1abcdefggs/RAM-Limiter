@@ -71,6 +71,7 @@
     <Compile Include="ConfigLoader.cs" />
     <Compile Include="Elevation.cs" />
     <Compile Include="InteractiveMenu.cs" />
+    <Compile Include="Log.cs" />
     <Compile Include="MonitorRegistry.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="ProcessMonitor.cs" />
