@@ -1,11 +1,29 @@
 using System;
-using System.Threading;
 
 namespace RAMLIMITER
 {
     static class InteractiveMenu
     {
         const int CustomIntervalMs = 3000;
+
+        static readonly string MenuText = string.Join(Environment.NewLine,
+            "Limit Discord: 1",
+            "Limit Chrome: 2",
+            "Limit OBS: 3",
+            "Limit Discord & Chrome: 4",
+            "Limit Custom: 5",
+            "Stop monitoring a process: 6",
+            "List active monitors: 7",
+            "Exit: 0");
+        // Process names for menu keys 1-4
+        static readonly string[][] Presets =
+        {
+            null,
+            new[] { "discord" },
+            new[] { "chrome" },
+            new[] { "obs64" },
+            new[] { "discord", "chrome" },
+        };
 
         // 0-9 from the main row or the numpad, -1 for any other key
         static int ToDigit(ConsoleKey key)
@@ -17,57 +35,36 @@ namespace RAMLIMITER
 
         internal static void Run(MonitorRegistry monitors)
         {
-            bool running = true;
-            while (running)
+            string error = null;
+            while (true)
             {
-                // existing interactive menu (keeps behavior)
                 Console.Clear();
-                Console.WriteLine("Limit Discord: 1");
-                Console.WriteLine("Limit Chrome: 2");
-                Console.WriteLine("Limit OBS: 3");
-                Console.WriteLine("Limit Discord & Chrome: 4");
-                Console.WriteLine("Limit Custom: 5");
-                Console.WriteLine("Stop monitoring a process: 6");
-                Console.WriteLine("List active monitors: 7");
-                Console.WriteLine("Exit: 0");
-
+                Console.WriteLine(MenuText);
+                foreach (var notice in monitors.TakeNotices()) Console.WriteLine(notice);
+                if (error != null) { Log.Write(ConsoleColor.Red, error); error = null; }
                 switch (ToDigit(Console.ReadKey(true).Key))
                 {
-                    case 1:
-                        monitors.Start("discord", Config.DefaultIntervalMs);
-                        break;
-                    case 2:
-                        monitors.Start("chrome", Config.DefaultIntervalMs);
-                        break;
-                    case 3:
-                        monitors.Start("obs64", Config.DefaultIntervalMs);
-                        break;
-                    case 4:
-                        monitors.Start("discord", Config.DefaultIntervalMs);
-                        monitors.Start("chrome", Config.DefaultIntervalMs);
+                    case int d when d >= 1 && d <= 4:
+                        foreach (var n in Presets[d]) monitors.Start(n, Config.DefaultIntervalMs);
                         break;
                     case 5:
                         Console.WriteLine("Enter process names separated by commas (e.g., chrome, obs64, discord):");
-                        foreach (var n in Config.SplitNames(Console.ReadLine() ?? string.Empty))
-                            monitors.Start(n, CustomIntervalMs);
+                        foreach (var n in Config.SplitNames(Console.ReadLine() ?? string.Empty)) monitors.Start(n, CustomIntervalMs);
                         break;
                     case 6:
                         Console.WriteLine("Enter process name to stop monitoring:");
-                        monitors.Stop(Console.ReadLine() ?? string.Empty);
+                        monitors.Stop(Console.ReadLine());
                         break;
                     case 7:
                         Console.WriteLine("Active monitors:");
-                        foreach (var k in monitors.Names)
-                            Console.WriteLine(" - " + k);
+                        foreach (var k in monitors.Names) Console.WriteLine(" - " + k);
                         Console.WriteLine("Press any key to continue...");
                         Console.ReadKey(true);
                         break;
                     case 0:
-                        running = false;
-                        break;
+                        return;
                     default:
-                        Log.Write(ConsoleColor.Red, "Invalid input. Try again.");
-                        Thread.Sleep(1000);
+                        error = "Invalid input. Try again.";
                         break;
                 }
             }

@@ -10,41 +10,32 @@ namespace RAMLIMITER
     {
         static bool IsAdmin()
         {
-            var id = WindowsIdentity.GetCurrent();
-            var principal = new WindowsPrincipal(id);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            using (var id = WindowsIdentity.GetCurrent())
+                return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
         }
 
         internal static void ElevatePrivileges(string[] args)
         {
-            if (IsAdmin())
-                return;
-
-            var arguments = args == null || args.Length == 0 ? string.Empty : string.Join(" ", args);
-
-            var psi = new ProcessStartInfo
-            {
-                UseShellExecute = true,
-                WorkingDirectory = Environment.CurrentDirectory,
-                FileName = Assembly.GetEntryAssembly().Location,
-                Arguments = arguments,
-                Verb = "runas"
-            };
-
+            if (IsAdmin()) return;
             Console.Clear();
             Console.WriteLine("RAM Limiter does not currently have admin. privileges.\nWould you like to run as admin? (y/n)");
-            if (Console.ReadKey(true).Key == ConsoleKey.Y)
+            if (Console.ReadKey(true).Key != ConsoleKey.Y) return;
+            try
             {
-                try
+                Process.Start(new ProcessStartInfo
                 {
-                    Process.Start(psi);
-                    Environment.Exit(0);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Could not elevate program.\n" + ex.Message);
-                    Thread.Sleep(2000);
-                }
+                    UseShellExecute = true,
+                    WorkingDirectory = Environment.CurrentDirectory,
+                    FileName = Assembly.GetEntryAssembly().Location,
+                    Arguments = string.Join(" ", args),
+                    Verb = "runas"
+                });
+                Environment.Exit(0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Could not elevate program.\n" + ex.Message);
+                Thread.Sleep(2000);
             }
         }
     }

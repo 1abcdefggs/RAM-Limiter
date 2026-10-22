@@ -29,14 +29,12 @@ namespace RAMLIMITER
         public static void Run(string tooltip)
         {
             Application.EnableVisualStyles();
-
             using (var icon = Icon.ExtractAssociatedIcon(Assembly.GetEntryAssembly().Location))
             using (var tray = new NotifyIcon())
             using (var menu = new ContextMenuStrip())
             {
                 bool consoleVisible = false;
                 SetConsoleVisible(false);
-
                 var toggle = new ToolStripMenuItem("Show console");
                 toggle.Click += (s, e) =>
                 {
@@ -44,21 +42,16 @@ namespace RAMLIMITER
                     SetConsoleVisible(consoleVisible);
                     toggle.Text = consoleVisible ? "Hide console" : "Show console";
                 };
-
                 var exit = new ToolStripMenuItem("Exit");
                 exit.Click += (s, e) => Application.ExitThread();
-
                 menu.Items.Add(toggle);
                 menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add(exit);
-
                 tray.Icon = icon;
                 tray.Text = tooltip.Length > 63 ? tooltip.Substring(0, 63) : tooltip;
                 tray.ContextMenuStrip = menu;
                 tray.Visible = true;
-
                 Application.Run();
-
                 tray.Visible = false;
                 SetConsoleVisible(true);
             }

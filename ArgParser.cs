@@ -17,66 +17,39 @@ namespace RAMLIMITER
             Console.WriteLine("  --help                Show this help");
         }
 
+        const int MinIntervalMs = 100;
+
         static bool Is(string arg, string flag) => string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase);
 
         internal static void ParseAndApplyArgs(string[] args, out Config cfg, out bool showHelp)
         {
             cfg = new Config();
             showHelp = false;
-
             string configPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
             bool intervalSet = false;
-
             for (int i = 0; i < args.Length; i++)
             {
                 var a = args[i];
-                if (Is(a, "--help") || Is(a, "-h"))
+                bool hasValue = i + 1 < args.Length;
+                if (Is(a, "--help") || Is(a, "-h")) { showHelp = true; return; }
+                else if (Is(a, "--config") && hasValue) configPath = args[++i];
+                else if (Is(a, "--processes") && hasValue) cfg.Processes = Config.SplitNames(args[++i]);
+                else if (Is(a, "--interval") && hasValue)
                 {
-                    showHelp = true; return;
+                    if (int.TryParse(args[++i], out var ms)) { cfg.IntervalMs = Math.Max(MinIntervalMs, ms); intervalSet = true; }
                 }
-                if (Is(a, "--config") && i + 1 < args.Length)
-                {
-                    configPath = args[++i];
-                    continue;
-                }
-                if (Is(a, "--processes") && i + 1 < args.Length)
-                {
-                    cfg.Processes = Config.SplitNames(args[++i]);
-                    continue;
-                }
-                if (Is(a, "--interval") && i + 1 < args.Length)
-                {
-                    if (int.TryParse(args[++i], out var ms))
-                    {
-                        cfg.IntervalMs = Math.Max(100, ms);
-                        intervalSet = true;
-                    }
-                    continue;
-                }
-                if (Is(a, "--autostart"))
-                {
-                    cfg.AutoStart = true; continue;
-                }
-                if (Is(a, "--tray"))
-                {
-                    cfg.Tray = true; cfg.AutoStart = true; continue;
-                }
+                else if (Is(a, "--autostart")) cfg.AutoStart = true;
+                else if (Is(a, "--tray")) cfg.Tray = cfg.AutoStart = true;
             }
-
+            // file values apply only where the CLI gave none
             var fileCfg = ConfigLoader.LoadConfig(configPath);
             if (fileCfg != null)
             {
-                // apply file values only when not provided by CLI (CLI already wrote into cfg.Processes/IntervalMs/AutoStart)
-                if ((cfg.Processes == null || cfg.Processes.Length == 0) && fileCfg.Processes != null)
-                    cfg.Processes = fileCfg.Processes;
-                if (!intervalSet && fileCfg.IntervalMs > 0)
-                    cfg.IntervalMs = Math.Max(100, fileCfg.IntervalMs);
-                if (!cfg.AutoStart && fileCfg.AutoStart)
-                    cfg.AutoStart = fileCfg.AutoStart;
+                if ((cfg.Processes == null || cfg.Processes.Length == 0) && fileCfg.Processes != null) cfg.Processes = fileCfg.Processes;
+                if (!intervalSet && fileCfg.IntervalMs > 0) cfg.IntervalMs = Math.Max(MinIntervalMs, fileCfg.IntervalMs);
+                cfg.AutoStart |= fileCfg.AutoStart;
             }
-
-            // default to empty processes array
-            if (cfg.Processes == null) cfg.Processes = new string[0];
+            cfg.Processes = cfg.Processes ?? new string[0];
         }
     }
 }

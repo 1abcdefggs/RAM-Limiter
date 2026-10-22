@@ -10,6 +10,8 @@ namespace RAMLIMITER
     {
         readonly Dictionary<string, CancellationTokenSource> monitors =
             new Dictionary<string, CancellationTokenSource>(StringComparer.OrdinalIgnoreCase);
+        // Status lines since the menu last drew; the menu shows them under itself.
+        readonly List<string> notices = new List<string>();
 
         public IEnumerable<string> Names => monitors.Keys;
 
@@ -20,56 +22,42 @@ namespace RAMLIMITER
             return key != null;
         }
 
-        // print a status line and pause so the menu does not clear it at once
-        static void Notify(string message, int pauseMs)
+        void Notify(string message)
         {
             Console.WriteLine(message);
-            Thread.Sleep(pauseMs);
+            notices.Add(message);
+        }
+
+        // Returns and clears the pending status lines.
+        public string[] TakeNotices()
+        {
+            var taken = notices.ToArray();
+            notices.Clear();
+            return taken;
         }
 
         public void Start(string name, int intervalMs)
         {
-            if (!TryNormalize(name, out name))
-                return;
-
-            if (monitors.ContainsKey(name))
-            {
-                Notify($"Already monitoring {name}", 800);
-                return;
-            }
-
+            if (!TryNormalize(name, out name)) return;
+            if (monitors.ContainsKey(name)) { Notify($"Already monitoring {name}"); return; }
             var cts = new CancellationTokenSource();
             monitors[name] = cts;
             Task.Run(() => ProcessMonitor.MonitorProcessAsync(name, intervalMs, cts.Token));
-            Notify($"Started monitoring {name}", 500);
+            Notify($"Started monitoring {name}");
         }
 
         public void Stop(string name)
         {
-            if (!TryNormalize(name, out name))
-                return;
-
-            if (!monitors.TryGetValue(name, out var cts))
-            {
-                Notify($"Not monitoring {name}", 800);
-                return;
-            }
-
-            try
-            {
-                cts.Cancel();
-            }
-            catch { }
+            if (!TryNormalize(name, out name)) return;
+            if (!monitors.TryGetValue(name, out var cts)) { Notify($"Not monitoring {name}"); return; }
+            cts.Cancel();
             monitors.Remove(name);
-            Notify($"Stopped monitoring {name}", 500);
+            Notify($"Stopped monitoring {name}");
         }
 
         public void CancelAll()
         {
-            foreach (var cts in monitors.Values)
-            {
-                try { cts.Cancel(); } catch { }
-            }
+            foreach (var cts in monitors.Values) cts.Cancel();
         }
     }
 }
